@@ -45,7 +45,7 @@ class build_ext_opt(build_ext):
     def build_extension(self, ext):
         try:
             build_ext.build_extension(self, ext)
-        except (CCompilerError, DistutilsError, CompileError):
+        except:
             e = sys.exc_info()[1]
             if self.force:
                 raise
