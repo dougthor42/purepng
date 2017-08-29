@@ -17,6 +17,9 @@ install:
   - "%PYTHON%\\python.exe -c \"import sys; print(sys.version)"
   - "%PYTHON%\\python.exe -c \"import struct; print(struct.calcsize('P') * 8)\""
 
+  # Make sure packaging things are up to date.
+  - "%PYTHON%\\python.exe -m pip install --upgrade pip wheel setuptools"
+
   - "%PYTHON%\\python.exe -m pip install nose"
   - "%PYTHON%\\python.exe -m pip install argparse"
 
