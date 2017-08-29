@@ -35,7 +35,7 @@ build: false
 
 test_script:
   # run the project tests
-  - "%PYTHON%\\nosetests test_png.py"
+  - "%PYTHON%\\python.exe -m nose test_png.py"
 
 after_test:
   # If tests are successful, update coverage.
