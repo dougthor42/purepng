@@ -1,11 +1,9 @@
 environment:
-  global:
-    # SDK v7.0 MSVC Express 2008's SetEnv.cmd script will fail if the
-    # /E:ON and /V:ON options are not enabled in the batch script intepreter
-    # See: http://stackoverflow.com/a/13751649/163740
-    CMD_IN_ENV: "cmd /E:ON /V:ON /C .\\appveyor\\run_with_env.cmd"
-
   matrix:
+
+    - PYTHON: "C:\\Python35"
+    - PYTHON: "C:\\Python35-x64"
+    - PYTHON: "C:\\Python36-x64"
 
     # Pre-installed Python versions, which Appveyor may upgrade to
     # a later point release.
@@ -34,42 +32,19 @@ environment:
       py_minor: "4"
 
 install:
-  #- ECHO "Filesystem root:"
-  #- ps: "ls \"C:/\""
-
-  #- ECHO "Installed SDKs:"
-  #- ps: "ls \"C:/Program Files/Microsoft SDKs/Windows\""
-
-  # Install Python (from the official .msi of http://python.org) and pip when
-  # not already installed.
-  - ps: if (-not(Test-Path($env:PYTHON))) { & appveyor\install.ps1 }
-
-  # Prepend newly installed Python to the PATH of this build (this cannot be
-  # done from inside the powershell script as it would require to restart
-  # the parent CMD process).
-  - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
   # Check that we have the expected version and architecture for Python
-  - "python -c \"import sys; print(sys.version)"
-  - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
-  # Install the build dependencies of the project. If some dependencies contain
-  # compiled extensions and are not provided as pre-built wheel packages,
-  # pip will build them from source using the MSVC compiler matching the
-  # target Python version and architecture
-  - "%CMD_IN_ENV% easy_install nose"
-  - "%CMD_IN_ENV% easy_install argparse"
-#  - "%CMD_IN_ENV% easy_install PIL"
-# Disabled due to https://github.com/lemurheavy/coveralls-public/issues/613
-#  - "if %py_minor% GEQ 6 %CMD_IN_ENV% easy_install coverage"
-#  - "if %py_minor% GEQ 6 %CMD_IN_ENV% easy_install coveralls"
+  - "%PYTHON%\\python.exe -c \"import sys; print(sys.version)"
+  - "%PYTHON%\\python.exe -c \"import struct; print(struct.calcsize('P') * 8)\""
 
-  # Not a C# project, build stuff at the test step instead.
-build: false  
+  - "%PYTHON%\\python.exe -m pip install nose"
+  - "%PYTHON%\\python.exe -m pip install argparse"
+
+# Not a C# project, build stuff at the test step instead.
+build: false
 
 test_script:
   # run the project tests
-  - "%CMD_IN_ENV% nosetests test_png.py"
-  #- "if %py_minor% GEQ 6 %CMD_IN_ENV% nosetests code/test_png.py --with-coverage --cover-package=png"
-  #- "if %py_minor% LSS 6 %CMD_IN_ENV% nosetests code/test_png.py"
+  - "%PYTHON%\\python.exe nosetests test_png.py"
 
 after_test:
   # If tests are successful, update coverage.
@@ -77,7 +52,7 @@ after_test:
   - "SET COVERALLS_PARALLEL=true"
   - "SET COVERALLS_REPO_TOKEN=w8NKB65QmekU0thmQV1E5yEaFpYIyUAYP"
   #- "if %py_minor% GEQ 6 %CMD_IN_ENV% coveralls"
-  
+
 #notifications:
 #  - provider: Webhook
 #    url: https://coveralls.io/webhook?repo_token=w8NKB65QmekU0thmQV1E5yEaFpYIyUAYP
