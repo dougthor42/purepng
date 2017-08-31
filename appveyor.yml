@@ -15,7 +15,6 @@ environment:
 
     - PYTHON: "C:\\Python27"
     - PYTHON: "C:\\Python27-x64"
-      BUILD_WHEEL: "True"
     - PYTHON: "C:\\Python33"
     - PYTHON: "C:\\Python33-x64"
     - PYTHON: "C:\\Python34"
@@ -24,7 +23,6 @@ environment:
     - PYTHON: "C:\\Python35-x64"
     - PYTHON: "C:\\Python36"
     - PYTHON: "C:\\Python36-x64"
-      BUILD_WHEEL: "True"
 
     # Also test a Python version not pre-installed
     # See: https://github.com/ogrisel/python-appveyor-demo/issues/10
@@ -32,6 +30,7 @@ environment:
       PYTHON_VERSION: "2.6.6"
       PYTHON_ARCH: "32"
       py_minor: "6"
+      SKIP_WHEEL: "True"
       PKG_INSTALL: "%CMD_IN_ENV% easy_install"
       TEST_RUNNER: "%CMD_IN_ENV% nosetests"
 
@@ -39,6 +38,7 @@ environment:
       PYTHON_VERSION: "2.5.4"
       PYTHON_ARCH: "32"
       py_minor: "5"
+      SKIP_WHEEL: "True"
       PKG_INSTALL: "%CMD_IN_ENV% easy_install"
       TEST_RUNNER: "%CMD_IN_ENV% nosetests"
 
@@ -46,6 +46,7 @@ environment:
       PYTHON_VERSION: "2.4.4"
       PYTHON_ARCH: "32"
       py_minor: "4"
+      SKIP_WHEEL: "True"
       PKG_INSTALL: "%CMD_IN_ENV% easy_install"
       TEST_RUNNER: "%CMD_IN_ENV% nosetests"
 
@@ -68,17 +69,17 @@ install:
   # target Python version and architecture
 
   # Update pip, setuptools, and wheel for all non-old python versions.
-  # If IS_OLD is defined, don't install stuff.
-  # Powershell note: There is no $ in front of "env:IS_OLD". This stops the
-  # variable from being expanded. I think.
+
+  # PowerShell note: There is no $ in front of "env:SKIP_WHEEL". This stops
+  # the variable from being expanded. I think.
   - ps: |
-      if (Test-Path env:BUILD_WHEEL)
+      if (Test-Path env:SKIP_WHEEL)
       {
+        Write-Host "Not installing wheel requirements"
+      } else {
         Write-Host "Installing wheel requirements and cython."
         & "$env:PYTHON/python.exe" -m pip install --upgrade pip setuptools wheel
         & "$env:PYTHON/python.exe" -m pip install --upgrade cython
-      } else {
-        Write-Host "Not installing wheel requirements"
       }
   - "%PKG_INSTALL% nose"
   - "%PKG_INSTALL% argparse"
@@ -103,10 +104,12 @@ after_test:
   - "SET COVERALLS_REPO_TOKEN=w8NKB65QmekU0thmQV1E5yEaFpYIyUAYP"
   #- "if %py_minor% GEQ 6 %CMD_IN_ENV% coveralls"
 
-  # create wheel package, but only for non-old python versions.
+  # create wheel package, but not for older python versions.
   - ps: |
-      if (Test-Path env:BUILD_WHEEL)
+      if (Test-Path env:SKIP_WHEEL)
       {
+        Write-Host "Not building wheel."
+      } else {
         # Allow warnings and errors for building wheels. It appears that
         # PowerShell consideres the warnings that bdist_wheel generates
         # to be errors and returns an failing error code for the wheel build.
@@ -119,8 +122,6 @@ after_test:
 
         # Reset our ErrorActionPreference to previous value.
         $ErrorActionPreference = $old_ErrorActionPreference
-      } else {
-        Write-Host "Not building wheel."
       }
 
 #notifications:
