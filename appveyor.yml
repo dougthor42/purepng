@@ -74,8 +74,9 @@ install:
   - ps: |
       if (Test-Path env:BUILD_WHEEL)
       {
-        Write-Host "Installing wheel requirements."
+        Write-Host "Installing wheel requirements and cython."
         & "$env:PYTHON/python.exe" -m pip install --upgrade pip setuptools wheel
+        & "$env:PYTHON/python.exe" -m pip install --upgrade cython
       } else {
         Write-Host "Not installing wheel requirements"
       }
