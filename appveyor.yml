@@ -1,8 +1,21 @@
 environment:
+  global:
+    # SDK v7.0 MSVC Express 2008's SetEnv.cmd script will fail if the
+    # /E:ON and /V:ON options are not enabled in the batch script intepreter
+    # See: http://stackoverflow.com/a/13751649/163740
+    CMD_IN_ENV: "cmd /E:ON /V:ON /C .\\appveyor\\run_with_env.cmd"
+
+    # The default package installer is pip. Py26 and earlier use easy_install
+    PKG_INSTALL: "%PYTHON%\\python.exe -m pip install --upgrade"
+
+    # The default test runner: python -m nose. Py26 and eariler use nosetests
+    TEST_RUNNER: "%PYTHON%\\python.exe -m nose"
+
   matrix:
 
     - PYTHON: "C:\\Python27"
     - PYTHON: "C:\\Python27-x64"
+      BUILD_WHEEL: "True"
     - PYTHON: "C:\\Python33"
     - PYTHON: "C:\\Python33-x64"
     - PYTHON: "C:\\Python34"
@@ -11,21 +24,64 @@ environment:
     - PYTHON: "C:\\Python35-x64"
     - PYTHON: "C:\\Python36"
     - PYTHON: "C:\\Python36-x64"
+      BUILD_WHEEL: "True"
+
+    # Also test a Python version not pre-installed
+    # See: https://github.com/ogrisel/python-appveyor-demo/issues/10
+    - PYTHON: "C:\\Python266"
+      PYTHON_VERSION: "2.6.6"
+      PYTHON_ARCH: "32"
+      py_minor: "6"
+      PKG_INSTALL: "%CMD_IN_ENV% easy_install"
+      TEST_RUNNER: "%CMD_IN_ENV% nosetests"
+
+    - PYTHON: "C:\\Python254"
+      PYTHON_VERSION: "2.5.4"
+      PYTHON_ARCH: "32"
+      py_minor: "5"
+      PKG_INSTALL: "%CMD_IN_ENV% easy_install"
+      TEST_RUNNER: "%CMD_IN_ENV% nosetests"
+
+    - PYTHON: "C:\\Python244"
+      PYTHON_VERSION: "2.4.4"
+      PYTHON_ARCH: "32"
+      py_minor: "4"
+      PKG_INSTALL: "%CMD_IN_ENV% easy_install"
+      TEST_RUNNER: "%CMD_IN_ENV% nosetests"
 
 install:
+  # Install Python (from the official .msi of http://python.org) and pip when
+  # not already installed.
+  - ps: if (-not(Test-Path($env:PYTHON))) { & appveyor\install.ps1 }
+
+  # Prepend newly installed Python to the PATH of this build (this cannot be
+  # done from inside the powershell script as it would require to restart
+  # the parent CMD process).
+  - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
+
   # Check that we have the expected version and architecture for Python
-  - "%PYTHON%\\python.exe -c \"import sys; print(sys.version)"
-  - "%PYTHON%\\python.exe -c \"import struct; print(struct.calcsize('P') * 8)\""
+  - "python -c \"import sys; print(sys.version)"
+  - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
   # Install the build dependencies of the project. If some dependencies contain
   # compiled extensions and are not provided as pre-built wheel packages,
   # pip will build them from source using the MSVC compiler matching the
   # target Python version and architecture
-  # Make sure packaging things are up to date.
-  - "%PYTHON%\\python.exe -m pip install --upgrade pip wheel setuptools"
 
-  - "%PYTHON%\\python.exe -m pip install nose"
-  - "%PYTHON%\\python.exe -m pip install argparse"
-#  - "%PYTHON%\\python.exe -m pip install PIL"
+  # Update pip, setuptools, and wheel for all non-old python versions.
+  # If IS_OLD is defined, don't install stuff.
+  # Powershell note: There is no $ in front of "env:IS_OLD". This stops the
+  # variable from being expanded. I think.
+  - ps: |
+      if (Test-Path env:BUILD_WHEEL)
+      {
+        Write-Host "Installing wheel requirements."
+        & "$env:PYTHON/python.exe" -m pip install --upgrade pip setuptools wheel
+      } else {
+        Write-Host "Not installing wheel requirements"
+      }
+  - "%PKG_INSTALL% nose"
+  - "%PKG_INSTALL% argparse"
+#  - "%CMD_IN_ENV% python -m pip install PIL"
 # Disabled due to https://github.com/lemurheavy/coveralls-public/issues/613
 #  - "if %py_minor% GEQ 6 %CMD_IN_ENV% easy_install coverage"
 #  - "if %py_minor% GEQ 6 %CMD_IN_ENV% easy_install coveralls"
@@ -35,7 +91,7 @@ build: false
 
 test_script:
   # run the project tests
-  - "%PYTHON%\\python.exe -m nose test_png.py"
+  - "%TEST_RUNNER% test_png.py"
   #- "if %py_minor% GEQ 6 %CMD_IN_ENV% nosetests code/test_png.py --with-coverage --cover-package=png"
   #- "if %py_minor% LSS 6 %CMD_IN_ENV% nosetests code/test_png.py"
 
@@ -46,9 +102,25 @@ after_test:
   - "SET COVERALLS_REPO_TOKEN=w8NKB65QmekU0thmQV1E5yEaFpYIyUAYP"
   #- "if %py_minor% GEQ 6 %CMD_IN_ENV% coveralls"
 
-  # create wheel package
-  - "%PYTHON%\\python.exe setup.py bdist_wheel"
-  - ps: "ls dist"
+  # create wheel package, but only for non-old python versions.
+  - ps: |
+      if (Test-Path env:BUILD_WHEEL)
+      {
+        # Allow warnings and errors for building wheels. It appears that
+        # PowerShell consideres the warnings that bdist_wheel generates
+        # to be errors and returns an failing error code for the wheel build.
+        $old_ErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'SilentlyContinue'
+
+        Write-Host "Building wheel"
+        # Build the wheel
+        & "$env:PYTHON/python.exe" setup.py bdist_wheel
+
+        # Reset our ErrorActionPreference to previous value.
+        $ErrorActionPreference = $old_ErrorActionPreference
+      } else {
+        Write-Host "Not building wheel."
+      }
 
 #notifications:
 #  - provider: Webhook
